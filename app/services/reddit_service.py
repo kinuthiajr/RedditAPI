@@ -1,6 +1,8 @@
 import praw
 import os
 from dotenv import load_dotenv
+from db.redis import get_redis_pool
+import asyncio
 
 load_dotenv()
 
@@ -19,7 +21,7 @@ reddit = praw.Reddit(
     username=username,
 )
 
-def get_images_from_blursed():
+async def get_images_from_blursed(redis):
     """
     Func fetches images from blursed community on Reddit
     - Works with already configured connection(PRAW - Python Reddit API Wrapper)
@@ -33,11 +35,13 @@ def get_images_from_blursed():
 
     for submission in submissions:
         if submission.url.endswith(('jpg','jpeg','png')):
-            images.append(
-                {
+            image_data = {
                     "url":submission.url,
                     "title": submission.title,
                     "author": str(submission.author)
-                }
-        )
+                    }
+        images.append(image_data)
+
+        await redis.set(f'image:{submission.id}', submission.url)
+        
     return images
