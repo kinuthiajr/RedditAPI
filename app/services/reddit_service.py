@@ -1,12 +1,11 @@
 import praw
 import os
+import time
 from dotenv import load_dotenv
-from db.redis import get_redis_pool
-import asyncio
+from db.redis import get_redis_connection
 
 load_dotenv()
 
-# Access environment variables
 client_id=os.getenv("REDDIT_CLIENT_ID")
 client_secret=os.getenv("REDDIT_CLIENT_SECRET")
 password=os.getenv("PASSWORD")
@@ -21,7 +20,7 @@ reddit = praw.Reddit(
     username=username,
 )
 
-async def get_images_from_blursed(redis):
+def get_images_from_blursed(redis):
     """
     Func fetches images from blursed community on Reddit
     - Works with already configured connection(PRAW - Python Reddit API Wrapper)
@@ -31,17 +30,31 @@ async def get_images_from_blursed(redis):
     """
     images = []
     subreddit = reddit.subreddit("blursedimages")
-    submissions = subreddit.new(limit=10)
 
-    for submission in submissions:
-        if submission.url.endswith(('jpg','jpeg','png')):
-            image_data = {
-                    "url":submission.url,
-                    "title": submission.title,
-                    "author": str(submission.author)
-                    }
-        images.append(image_data)
+    # Set timer for the API call
+    start_time = time.time()
+    run_duration = 120 # Test for 2 mins
+    request_count = 0
 
-        await redis.set(f'image:{submission.id}', submission.url)
+    while time.time() - start_time < run_duration:
+        submissions = subreddit.new(limit=10)
+
+        for submission in submissions:
+            if submission.url.endswith(('jpg','jpeg','png')):
+                image_data = {
+                        "url":submission.url,
+                        "title": submission.title,
+                        "author": str(submission.author)
+                        }
+            images.append(image_data)
+
+            redis.set(f'image:{submission.id}', submission.url)
+
+        request_count += 1
+
+        # Sleep to respect rate limit. 
+        if request_count >= 10:
+            time.sleep(60) 
+            request_count = 0
         
     return images
