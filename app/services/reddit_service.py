@@ -42,9 +42,11 @@ def get_images_from_blursed(redis):
         for submission in submissions:
             if submission.url.endswith(('jpg','jpeg','png')):
                 image_data = {
+                        "id": submission.id,
                         "url":submission.url,
                         "title": submission.title,
-                        "author": str(submission.author)
+                        "author": str(submission.author),
+                        "created_utc": submission.created_utc
                         }
             images.append(image_data)
 

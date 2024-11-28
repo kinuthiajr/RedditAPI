@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends,BackgroundTasks
 from endpoint.router import reddit_router
 from db.redis import get_redis_connection
 from services.reddit_service import get_images_from_blursed
@@ -7,11 +7,18 @@ app = FastAPI()
 
 app.include_router(reddit_router)
 
-@app.post("/start-scraping")
-def start_scraping(redis=Depends(get_redis_connection)):
+def run_background_task(redis):
+    """
+    Background task to run the scraping process.
+    """
     try:
-        #Fetch images and store them in Redis
-        images = get_images_from_blursed(redis)
-        return {"message": "Scraping started!", "images": images}
+        get_images_from_blursed(redis)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error during scraping: {str(e)}")
+
+
+
+@app.post("/start-scraping")
+def start_scraping(background_tasks:BackgroundTasks,redis=Depends(get_redis_connection)):
+    background_tasks.add_task(run_background_task, redis)
+    return {"message": "Scraping started!"}
